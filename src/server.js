@@ -17,13 +17,23 @@ function attributes(m) {
 }
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
+// Build an absolute base URL. Prefer PUBLIC_BASE; otherwise honour the proxy's
+// x-forwarded-proto, and default to https for any non-localhost host (Railway's
+// internal req.protocol is http, but the public edge is https — OpenSea needs https).
+function baseUrl(req) {
+  if (PUBLIC_BASE) return PUBLIC_BASE;
+  const host = req.get('host') || '';
+  const proto = req.get('x-forwarded-proto') || (/^localhost|^127\.|^0\.0\.0\.0/.test(host) ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
+
 // OpenSea metadata
 app.get('/api/metadata/:tokenId', async (req, res) => {
   const tokenId = parseInt(req.params.tokenId, 10);
   if (!Number.isInteger(tokenId) || tokenId < 1) return res.status(400).json({ error: 'bad tokenId' });
   try {
     const { content } = await resolveToken(tokenId);
-    const base = PUBLIC_BASE || `${req.protocol}://${req.get('host')}`;
+    const base = baseUrl(req);
     res.json({
       name: `Pixel Goblin #${tokenId}`,
       description: '10,000 unique on-chain Pixel Goblins — ETHscriptions on Ethereum.',
